@@ -1,13 +1,3 @@
-以下は、前回のドラフトをベースに、  
-- **Repository Structure**（tree形式、匿名化済み）  
-- **Getting Started**（再現性・配布・CPUフォールバック強調）  
-- **Role Profile Matching**（MLOps/Data Integrity・GUI Design観点）  
-を組み込んだ、更新版 `README.md` の全文案です。
-
-機密性に配慮し、研究固有の名称を含むファイル名は一般名に置き換えています（その旨も README 内で明記しています）。
-
----
-
 # Maltilabeler: Human–AI Collaborative Annotation Toolkit
 
 [![Status](https://img.shields.io/badge/status-research--grade-blue.svg)](./)  
