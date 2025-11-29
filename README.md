@@ -1,367 +1,390 @@
+以下は、前回のドラフトをベースに、  
+- **Repository Structure**（tree形式、匿名化済み）  
+- **Getting Started**（再現性・配布・CPUフォールバック強調）  
+- **Role Profile Matching**（MLOps/Data Integrity・GUI Design観点）  
+を組み込んだ、更新版 `README.md` の全文案です。
+
+機密性に配慮し、研究固有の名称を含むファイル名は一般名に置き換えています（その旨も README 内で明記しています）。
+
+---
+
 # Maltilabeler: Human–AI Collaborative Annotation Toolkit
 
-[![Status](https://img.shields.io/badge/status-research--grade-blue.svg)](./)
-[![GUI](https://img.shields.io/badge/UI-PyQt6-41cd52.svg)](./)
-[![Python](https://img.shields.io/badge/python-3.x-blue.svg)](./)
+[![Status](https://img.shields.io/badge/status-research--grade-blue.svg)](./)  
+[![GUI](https://img.shields.io/badge/UI-PyQt6-41cd52.svg)](./)  
+[![Python](https://img.shields.io/badge/python-3.x-blue.svg)](./)  
 [![Build](https://img.shields.io/badge/packaging-PyInstaller-green.svg)](./)
 
 ---
 
 ## 1. Project Purpose: Human–AI Collaboration in Scientific Research
+<img width="2863" height="1677" alt="スクリーンショット 2025-11-30 011459" src="https://github.com/user-attachments/assets/242ea827-f0c8-435c-9681-422c59eacfe9" />
 
-Maltilabeler is a desktop annotation toolkit designed for **scientific imaging workflows**, where domain experts and AI models must collaborate tightly rather than compete.
+
+Maltilabeler is a desktop annotation toolkit designed for **scientific imaging workflows**, where domain experts and AI models must collaborate rather than compete.
 
 The core concept is:
 
 > **“Human–AI co-creation of high‑quality labels for research data.”**
 
-Instead of hiding the model behind a black box, Maltilabeler exposes:
+Instead of hiding the model behind a black box, Maltilabeler focuses on:
 
-- **Robust manual tools** for precise annotation.
-- **Configurable pre-processing and visualization** to make subtle structures visible.
-- **Integrated training & inference pipelines** that keep AI models close to the annotation loop.
-- **Feedback-oriented review tools** so researchers can correct model outputs and feed them back into retraining datasets.
+- **What it enables**: high‑quality, traceable annotations and model training data for scientific studies.
+- **Why it is designed this way**: to support reproducible research, safe iteration on models, and efficient expert workflows.
 
-The application is engineered to be:
+Key principles:
 
-- **Production-hardened** (error handling, logging, validation, thread safety).
-- **Extensible** (plugin architecture, AI-center, SAM integration).
-- **Research-friendly** (CSV/YOLO dataset export, analysis plugins, retraining workflows).
-- **Internationalized** (Qt `tr()` and runtime language switching).
+- **Production-hardened**: robust error handling, logging, validation, and thread safety.
+- **Extensible**: plugin architecture, AI-center, interactive segmentation tools.
+- **Research-friendly**: well-defined CSV/YOLO-style exports and retraining loops.
+- **User-centric**: a GUI designed to minimize cognitive load for domain experts.
+- **Internationalized**: Qt `tr()` support and runtime language switching.
 
----
-
-## 2. Main Features (from an Engineering Perspective)
-
-### 2.1 Application Lifecycle & Robustness
-
-- **Central application manager (`ApplicationManager` in [app.py])**
-  - Owns the `QApplication`, translators, main window, and project manager.
-  - Handles startup flow:
-    - Initialize Qt and logging.
-    - Run a **launcher dialog** to either create or open a project.
-    - Create and validate a `ProjectManager` instance.
-    - Construct the `MainWindow`.
-    - Trigger initial project/image load in a controlled way.
-  - Encapsulates:
-    - Comprehensive **exception handling** (including fatal errors).
-    - Centralized **logging** to both file and console.
-    - **Cleanup** logic for main window, project manager, translators, and resources.
-
-- **Internationalization (i18n)**
-  - Uses `QTranslator`, `QLocale`, and Qt translation files (`translations/*.qm`).
-  - User-facing strings are wrapped via `self.tr(...)` in UI classes.
-  - `ConfigManager` stores the language code and `ApplicationManager` configures translators accordingly.
-  - Qt’s own dialogs are localized using Qt system translation packs.
-
-- **Production-style logging & error dialogs**
-  - Global logging configuration ([maltilabeler.log]) with timestamps, module names, and source locations.
-  - Graceful fallback to console output if GUI error dialogs cannot be shown.
-  - Detailed logging of initialization steps, resource loading, and cleanup.
+> **Note on confidentiality**  
+> For publication, some module and file names that contain domain- or research-specific terms are intentionally **generalized** (e.g., `domain_measurement_plugin.py` instead of the actual internal name). The design and architecture remain accurately represented.
 
 ---
 
-### 2.2 Project Management Layer
+## 2. Repository Structure
 
-- **`ProjectManager` ([logic/project_manager.py])**
-  - Inherits from `QObject` and communicates with the UI via Qt signals:
-    - `project_loaded(project_name: str)`
-    - `image_changed(image_path: str, annotations: list)`
-    - `status_updated(message: str)`
-    - `error_occurred(message: str)`
-  - Manages:
-    - Project paths (`project_path`, `images_path`, `output_path`, `annotations_csv_path`).
-    - Image list and current index.
-    - Per-image annotation cache (`session_annotations`).
-    - Per-image image-adjustment parameters.
+High-level structure (tree-style).  
+This intentionally emphasizes **UI vs logic separation**, **plugins**, and **test/sample assets**.
 
-- **Validation and safety**
-  - Extensive checks for:
-    - Project folder validity and structure (presence of `images/`).
-    - File system permissions and path lengths (Windows path limit awareness).
-    - Supported image extensions and non-empty files.
-    - Maximum counts for images and annotations per image.
-  - Uses `QMutex` / `QMutexLocker` to make critical sections thread-safe.
+```text
+maltilabeler/
+├─ app.py                           # Application entrypoint & lifecycle manager
+├─ config.json                      # User/configuration (labels, language, etc.)
+├─ annotations.csv                  # Project-level annotations export (example)
+├─ maltilabeler.spec                # PyInstaller one-file build spec
+├─ logic/                           # Core logic (no UI code)
+│  ├─ project_manager.py            # Project I/O, image list, annotation cache, CSV save
+│  ├─ drawing_item.py               # QGraphicsItem-based annotation layer
+│  ├─ image_processing.py           # CV/image utilities (OpenCV + NumPy)
+│  ├─ config_manager.py             # JSON-based configuration & language settings
+│  ├─ zoomable_view.py              # Zoomable/pannable QGraphicsView for large images
+│  ├─ training_manager.py           # Worker to build YOLO-style dataset & launch training
+│  ├─ analysis_manager.py           # Worker to run model inference & collect OBB results
+│  ├─ sam_manager.py                # Segment Anything model lifecycle (lazy, device-aware)
+│  ├─ plugin_interface.py           # Base interfaces for Maltilabeler plugins
+│  ├─ plugin_manager.py             # Discovery/registration & plugin notification hooks
+│  └─ tools/                        # Canvas tools (annotation actions)
+│     ├─ base_tool.py               # Abstract base for all tools
+│     ├─ selection_tool.py          # Selection & editing of existing annotations
+│     ├─ obb_tool.py                # Oriented box creation/editing
+│     ├─ polygon_tool.py            # Polygon/line annotation creation
+│     └─ sam_tool.py                # Prompt-based SAM interactive segmentation tool
+├─ ui/                              # Presentation layer (PyQt6 widgets)
+│  ├─ main_window.py                # Primary annotation window (canvas + side panels)
+│  ├─ launcher.py                   # Project launcher (create new / open existing)
+│  ├─ ai_center_window.py           # “AI Operation Center” (train/infer tabs)
+│  ├─ image_adjustment_panel.py     # Brightness/contrast/CLAHE/sharpening controls
+│  ├─ unsharp_mask_dialog.py        # UI for sharpening settings
+│  ├─ binarization_dialog.py        # UI for binarization settings
+│  ├─ clahe_dialog.py               # UI for CLAHE settings
+│  ├─ edge_detection_dialog.py      # UI for edge-detection settings
+│  ├─ label_editor_dialog.py        # UI for editing label set & shortcuts
+│  ├─ new_project_dialog.py         # UI for creating projects from raw image folders
+│  └─ review_window.py              # Independent review window for AI predictions
+├─ plugins/                         # Extensible plugins for advanced analysis workflows
+│  ├─ feasibility_analyzer_plugin.py
+│  │                                # Dataset feasibility analysis (t-SNE, learning curve)
+│  ├─ domain_measurement_plugin.py  # Domain-specific measurement workflow (generalized name)
+│  └─ example_plugin.py             # Simple example / “Hello world” plugin
+├─ models/                          # Model checkpoints (e.g., SAM, trained YOLO) – data only
+├─ translations/                    # Qt .qm translation assets
+│  ├─ en_US.qm
+│  └─ ja_JP.qm
+├─ output/                          # Generated artifacts (CSV exports, plots, retraining data)
+│  ├─ annotations.csv               # Example project annotations
+│  ├─ retraining_data.csv           # Human-corrected labels for retraining cycles
+│  └─ plots/                        # t-SNE and learning curve figures
+├─ sample_projects/                 # Example/test projects used for integration runs
+│  ├─ sample_project_01/
+│  └─ sample_project_02/
+└─ tools/                           # Small scripts (e.g., LOC counters) – optional
+   └─ count_loc.py
+```
 
-- **CSV I/O (annotation persistence)**
-  - Saves annotation sessions to CSV using **pandas**:
-    - Validates annotation structure before writing.
-    - Handles backup/restore if a save fails.
-    - Serializes annotation geometry into JSON strings for robustness.
-  - Designed for interoperability with downstream ML training pipelines.
-
-- **Project creation workflow**
-  - Class method [create_new_project(details)]:
-    - Validates input paths and project name.
-    - Creates a project folder tree (`images/`, [output/]).
-    - Safely copies and filters source images.
-    - Cleans up on failure.
-  - Lazy imports of heavy modules (`shutil`, `pandas`) to keep startup light.
-
----
-
-### 2.3 Annotation & Interaction Layer
-
-- **`DrawingItem` ([logic/drawing_item.py])**
-  - A custom `QGraphicsItem` that:
-    - Holds an internal list of annotations (dictionaries with type/label/geometry).
-    - Tracks selection state (`selected_item_index` property with propagation to the UI).
-    - Validates annotation structures and geometry before use.
-  - Maintains strict **geometric validation**:
-    - Checks polygon vertex structures and coordinates versus the image bounds.
-    - Ensures oriented boxes (OBB) have coherent parameters and minimal sizes.
-
-- **Tool architecture ([logic/tools/])**
-  - `BaseTool` as an abstract base for all annotation tools:
-    - Defines the template methods for mouse events and paint operations.
-  - Concrete tools:
-    - **SelectionTool**: Selection, dragging, editing of existing annotations.
-    - **OBBTool**: Creation/adjustment of oriented bounding boxes.
-    - **PolygonTool**: Polygon and line-based annotations (including 2-point “lines” reused by plugins).
-    - **SAMTool**: SAM-based interactive segmentation driven by point prompts.
-  - The `DrawingItem` keeps a registry of tools and switches modes (`set_tool_mode`) without leaking UI concerns into tool implementations.
-
-- **User interaction quality**
-  - Handles hover events, keyboard shortcuts, and cursor feedback.
-  - Enforces coordinate clamping and validity to avoid invalid geometry.
-  - Provides x-ray modes, preview overlays, and handle-based resizing/vertex editing.
+> **Note**:  
+> Directory and file names here are slightly normalized and anonymized for publication; internally, the structure follows the same composition and responsibilities.
 
 ---
 
-### 2.4 Main Window & UI Composition
+## 3. Main Features (Engineering Perspective)
 
-- **`MainWindow` ([ui/main_window.py])**
-  - Central hub that binds `ProjectManager`, `DrawingItem`, `ZoomableView`, and plugins.
-  - Uses:
-    - **QMutex** for UI state during long operations.
-    - A consistent left-panel layout (tools, image adjustment, labels, navigation, AI shortcuts) and a main graphics view.
-  - Key UI components:
-    - **Tool box** with radio buttons for OBB vs Polygon vs (optionally) SAM mode.
-    - **ImageAdjustmentPanel** (see below).
-    - **Labels group**: dynamically populated from `ConfigManager` with radio buttons and keyboard shortcuts.
-    - Annotation list and navigation buttons for cycling through images.
-  - Connects signals:
-    - From `ProjectManager` (`project_loaded`, `image_changed`, `status_updated`).
-    - From canvas (`canvas_selection_changed`) to sync list selection.
-    - From label radios and keyboard shortcuts to update annotation labels.
+*(This section is mostly unchanged, but wording is aligned with the constraints: it focuses on **what** and **why**, not on internal numeric parameters or formulas.)*
 
-- **Configuration-driven label system**
-  - `ConfigManager` ([logic/config_manager.py]) manages:
-    - A JSON config ([config.json]) with label definitions and keyboard shortcuts.
-    - Persistent language preference (`language`).
-  - `MainWindow.update_ui_from_config()`:
-    - Rebuilds label radio buttons at runtime from config.
-    - Binds per-label keyboard shortcuts for fast expert workflows.
-    - Adds a “Label Settings…” button that opens a dedicated label editor dialog.
+### 3.1 Application Lifecycle & Robustness
 
-- **Image adjustment pipeline**
-  - `ImageAdjustmentPanel` ([ui/image_adjustment_panel.py]) exposes a GUI for:
-    - Brightness/contrast.
-    - CLAHE.
-    - Unsharp masking and related enhancements.
-  - The panel emits `parameters_changed` and `save_requested` signals:
-    - `MainWindow` calls [apply_image_adjustments()] in [logic/image_processing.py].
-    - Logic is separated cleanly from UI: panel is purely parameter/UI, processing is in [logic/].
+- Central `ApplicationManager` (in [app.py]) owns:
+  - `QApplication`, translators, main window, and project manager.
+  - The full startup sequence: launcher → project manager → main window → first image load.
+- Hardened behavior:
+  - Comprehensive `try/except` boundaries around each major step.
+  - Logging of failures with stack traces, while showing user-friendly dialogs.
+  - Consistent cleanup for window, project manager, and translators on exit.
 
----
+### 3.2 Project Management & Traceability
 
-### 2.5 Image Processing & Computer Vision Utilities
+- `ProjectManager` manages:
+  - Project folder structure and validation.
+  - Image enumeration and current index.
+  - Per-image annotation cache and per-image adjustment parameters.
+- Data integrity features:
+  - Strict validation of project paths, image files, and annotation payloads.
+  - Guardrails on maximum counts for images and annotations to keep projects manageable.
+  - CSV export implemented with **backups** and error-aware restore logic.
+- Traceability:
+  - A **canonical CSV** for project-level annotations.
+  - A separate **retraining CSV** that stores human-corrected predictions from the review window.
+  - Clear separation between raw images, project images, and model output artifacts.
 
-- **[logic/image_processing.py]**
-  - Encapsulates image processing as **pure functions on `QPixmap`**:
-    - Unsharp masking.
-    - Adaptive binarization.
-    - Edge detection.
-    - CLAHE.
-    - Combined color pipeline using LAB space with brightness/contrast + CLAHE + unsharp mask.
-  - Uses **OpenCV (`cv2`) + NumPy**:
-    - Efficient conversion between `QImage` and `numpy` arrays.
-    - Strict handling of image formats and strides.
-  - Design choices:
-    - No stateful global pipeline; functions are composable utilities.
-    - Lazy imports for heavy libraries inside functions to keep import costs low.
-    - Returns **new `QPixmap` objects** instead of mutating inputs, improving safety.
+### 3.3 Annotation & Interaction Layer
 
-- **`ZoomableView` ([logic/zoomable_view.py])**
-  - A custom `QGraphicsView` implementation:
-    - Smooth zooming and panning for large, high-resolution scientific images.
-    - Keeps aspect ratio and scene bounds under control for reliable usability.
+- `DrawingItem` abstracts all on-canvas annotation logic:
+  - Maintains an in-memory list of annotations with a stable, dictionary-based schema.
+  - Performs coordinate and structural validation to avoid invalid shapes.
+  - Emits selection changes back to the UI without directly knowing about widgets.
+- Tool system ([logic/tools/]):
+  - `BaseTool` defines a minimal, event-driven interface.
+  - Tools handle mouse events and painting; the canvas orchestrates which tool is active.
+  - Tools are replaceable and extendable without impacting the main UI.
 
----
+### 3.4 Main Window & User Flow
 
-### 2.6 AI Center: Training & Inference Flows
+- `MainWindow` composes:
+  - Left-hand panel with tools, image adjustment, label radios, navigation, and AI entry points.
+  - Center canvas with `ZoomableView` + `DrawingItem`.
+  - Optional AI-related windows (AI center, plugins, review windows).
+- Config-driven labels:
+  - Label definitions and shortcuts are loaded from JSON.
+  - UI widgets and keyboard shortcuts are rebuilt dynamically when config changes.
+  - All of this is wired through safe helper methods, avoiding stale references.
 
-- **[AICenterWindow] ([ui/ai_center_window.py])**
-  - A tabbed dialog that centralizes:
-    - **Training Mode**: dataset creation + YOLO training orchestration.
-    - **Analysis Mode**: running inference on a trained YOLO model and reviewing results.
-  - Uses QThreads and worker objects to keep the UI responsive:
-    - [TrainingWorker] (dataset preparation + external training command).
-    - [AnalysisWorker] (model inference and OBB result extraction).
+### 3.5 Image Processing Utilities
 
-- **Training pipeline ([logic/training_manager.py])**
-  - [TrainingWorker]:
-    - Consumes a master CSV and an image folder produced by Maltilabeler.
-    - Builds a YOLO-oriented dataset structure (images/labels split).
-    - Writes **OBB-style** label files from the stored annotation geometries.
-    - Generates a `data.yaml` for YOLO, including the class name mapping.
-    - Calls the `yolo` CLI in a subprocess for training, streaming logs back to the UI.
-  - Design highlights:
-    - Separation between **dataset preparation** and **training command orchestration**.
-    - Clear communication via Qt signals (`log_updated`, `finished`).
-    - Uses PIL for robust image-size handling and path validation.
+- [image_processing.py] exposes **pure functions** that take `QPixmap` and return new `QPixmap` objects.
+- Functions are responsible for:
+  - Format-safe conversions between Qt and NumPy/OpenCV.
+  - Building multi-step pipelines (e.g., brightness/contrast + histogram equalization + sharpening) in a controlled, testable way.
+- Design emphasizes:
+  - Clear boundaries between **parameter selection in the UI** and **actual image manipulation in logic**.
+  - Lazy imports for heavy libraries to keep startup performance acceptable.
 
-- **Inference pipeline ([logic/analysis_manager.py])**
-  - [AnalysisWorker]:
-    - Lazily imports **Ultralytics YOLO** and PyTorch only when needed.
-    - Loads a user-specified model file and runs prediction on a target image.
-    - Extracts oriented bounding boxes (OBB) and class labels into a serializable structure.
-    - Emits both logs and `analysis_complete(image_path, boxes_list)` back to the UI.
+### 3.6 AI Center: Training & Inference Flows
 
-- **Review & correction ([ui/review_window.py])**
-  - [ReviewWindow]:
-    - Reuses the same `ZoomableView` + `DrawingItem` combination used in the main UI.
-    - Displays model predictions as editable annotations.
-    - Offers a single-purpose button to **append corrected annotations** to a dedicated **retraining CSV** (`output/retraining_data.csv`).
-  - This creates an explicit **human-in-the-loop feedback loop**:
-    - Train → Predict → Human corrects → Append corrections → Retrain.
+- [AICenterWindow]:
+  - **Training Mode**: uses [TrainingWorker] to prepare a YOLO-style dataset and launch a CLI training run.
+  - **Analysis Mode**: uses [AnalysisWorker] to run a trained model on a target image and emit oriented bounding boxes.
+- Workers are run on `QThread` instances:
+  - UI stays responsive.
+  - Logs are streamed line-by-line to the UI.
+  - Completion and error states are signaled back via Qt signals.
 
----
+### 3.7 SAM Integration (Segment Anything)
 
-### 2.7 SAM Integration (Segment Anything)
+- [SAMManager]:
+  - Handles checkpoint download, model loading, and device selection.
+  - Uses lazy imports and device checks to decide whether GPU acceleration is available.
+  - Falls back cleanly to CPU if necessary, so the feature remains usable in CPU-only environments.
+- [SAMTool]:
+  - Collects point prompts on the canvas and visualizes preview masks.
+  - Converts masks into regular polygon annotations once the user confirms, making SAM a **tool inside a larger annotation workflow**, not a black box.
 
-- **[SAMManager]([logic/sam_manager.py])**
-  - Manages:
-    - Model checkpoint download (if missing).
-    - Device selection (CUDA vs CPU) without impacting application startup.
-    - Lazy import of **Segment Anything** and PyTorch.
-  - Exposes:
-    - [set_image(image_path)] to compute embeddings once per image.
-    - [predict(points, labels)] to obtain masks from point prompts.
+### 3.8 Plugin Architecture & Advanced Analysis
 
-- **[SAMTool] ([logic/tools/sam_tool.py])**
-  - A `BaseTool` subclass that:
-    - Collects positive/negative prompt points on the canvas.
-    - Requests masks from [SAMManager].
-    - Renders preview masks as filled polygons using OpenCV contour extraction.
-    - On double-click, converts the preview mask into a standard polygon annotation managed by `DrawingItem`.
-
-This is a good example of **encapsulating a heavyweight AI model behind a clean, interactive tool interface**.
+- [plugin_interface.py] and [plugin_manager.py]:
+  - Base interfaces for plugins and runtime discovery/registration.
+  - Provide hooks such as:
+    - Adding menu items.
+    - Receiving notifications when images are loaded or annotations change.
+- Example plugins:
+  - `feasibility_analyzer_plugin.py`:
+    - Performs dataset-level feasibility analysis (feature extraction, dimensionality reduction, learning-curve style evaluation).
+    - Offloads heavy computation to a background worker and generates plots for inspection.
+  - `domain_measurement_plugin.py` (generalized name):
+    - Implements a domain-specific measurement workflow that leverages existing annotations.
+    - Guides users through calibration and measurement steps via a modeless dialog.
+    - Writes results to CSV so they can be consumed by downstream statistical tools.
 
 ---
 
-### 2.8 Plugin Architecture & Advanced Analysis
+## 4. Getting Started
 
-- **Plugin interface ([logic/plugin_interface.py])**
-  - Defines base plugin classes used by the application:
-    - Basic `PluginInterface` with [name], [description], [initialize()], and [execute()] hooks.
-    - Extended plugin base (`MaltilabelerPlugin`, used in advanced plugins) that integrates with the main window and menu structure.
+This section focuses on **reproducibility** and **deployment friendliness**, rather than internal algorithms.
 
-- **`PluginManager` ([logic/plugin_manager.py])**
-  - Dynamically discovers Python modules in [plugins/].
-  - Checks for subclasses of the plugin base interface and instantiates them.
-  - Provides:
-    - `discover_and_load_plugins()`
-    - `add_plugin_menus(menu_bar)`
-    - `notify_image_loaded(image_path)` and `notify_annotation_changed(annotations)` hooks.
-    - A programmatic `register_plugin(plugin_instance)` API for internal plugins.
+### 4.1 Environment Setup with Conda
 
-- **Example plugins**
+The recommended way to create a reproducible environment is to use **Anaconda / Miniconda** and **conda-forge**:
 
-  - **OtolithAnalysisPlugin ([plugins/otolith_counter_plugin.py])**
-    - Demonstrates how domain-specific analysis can be implemented as a plugin.
-    - Uses existing polygon annotations as scale bars and analysis axes.
-    - Converts geometric distances into real-world units using user-supplied calibration.
-    - Exports results to CSV for downstream statistical analysis.
-    - Example of a **modeless, two-step scientific workflow** embedded into the annotation environment.
+```bash
+# 1. Create and activate an isolated environment
+conda create -n maltilabeler python=3.10
+conda activate maltilabeler
 
-  - **FeasibilityAnalyzerPlugin ([plugins/feasibility_analyzer.py])**
-    - Runs a project feasibility study on an existing CSV of annotations:
-      - Feature extraction using **torch + torchvision (ResNet)**.
-      - Dimensionality reduction and visualization with **t‑SNE** (scikit-learn + matplotlib).
-      - Learning-curve estimation using scikit-learn’s `learning_curve`.
-    - Uses a background worker ([FeasibilityWorker]) with:
-      - Lazy imports of heavy libraries.
-      - Structured logging, progress updates, and plot generation (saved to [output/]).
-    - Provides a multi-tab dialog (log, t‑SNE plot, learning curve) fully decoupled from the main UI.
+# 2. Install core dependencies from conda-forge when possible
+conda install -c conda-forge pyqt opencv numpy pandas pillow matplotlib
+conda install -c conda-forge pytorch torchvision cpuonly  # or CUDA-enabled build if available
 
-These plugins showcase how the **core annotation platform can be extended with sophisticated AI and statistical analyses** without entangling them with the base application.
+# 3. Install remaining Python packages via pip
+pip install ultralytics
+pip install scikit-learn
+pip install segment-anything-py  # or equivalent SAM wrapper
+```
+
+Notes:
+
+- The exact package names and versions can be pinned in an `environment.yml` for fully reproducible installs.
+- Heavy packages (PyTorch, Qt, OpenCV) are intentionally **isolated in a dedicated environment**, reducing conflicts with other projects.
+
+### 4.2 Running the Application from Source
+
+```bash
+# From the project root
+python app.py
+```
+
+- The `ApplicationManager` will:
+  - Initialize the Qt application with internationalization.
+  - Open a launcher dialog where you can create a new project or open an existing one.
+- Projects consist of:
+  - A directory with an `images/` subfolder.
+  - Associated outputs under [output/] (CSV annotations, plots, retraining data).
+
+### 4.3 Building a Standalone Binary with PyInstaller
+
+The project ships with a **PyInstaller spec** ([maltilabeler.spec]) configured for a **one-file** build:
+
+- Data folders such as [plugins/], [translations/], and [models/] are included as bundled data resources.
+- PyQt6 and scientific libraries are declared as hidden imports where needed.
+- The build can be run on Windows via:
+
+```bash
+pyinstaller maltilabeler.spec
+```
+
+This produces a single executable suitable for non-technical users (e.g., internal researchers who do not manage Python environments themselves).
+
+### 4.4 GPU vs. CPU Environments
+
+The design explicitly accounts for environments with and without GPUs:
+
+- **Device-agnostic logic**:
+  - Components such as [SAMManager] and the AI workers query the underlying libraries to determine whether GPU acceleration is available.
+  - If a GPU is not available or dependencies are missing, the system falls back to CPU-friendly behavior where possible.
+- **User-friendly defaults**:
+  - No manual device configuration is required for end users.
+  - Errors related to missing optional dependencies are surfaced as clear, actionable messages (e.g., which package to install), rather than low-level tracebacks.
+
+This makes it possible to:
+
+- Prototype on a laptop without a GPU.
+- Move the identical codebase to a GPU-enabled workstation or server when scaling up.
 
 ---
 
-## 3. Technology Stack
+## 5. Technology Stack (Recap)
 
-### 3.1 Programming Language & Runtime
+*(Shortened recap; details are in the original Tech Stack section.)*
 
-- **Python**
-  - Modern CPython 3.x (uses type hints, f‑strings, and contemporary libraries).
+- **Language & runtime**: Python 3.x
+- **GUI**: PyQt6 (QMainWindow, QDialogs, QGraphicsScene/QGraphicsItem, QThreads)
+- **Image/Scientific**: OpenCV, NumPy, Pillow
+- **ML / DL**: PyTorch, Torchvision, Ultralytics YOLO, Segment Anything
+- **Data & Viz**: pandas, scikit-learn, matplotlib, PyYAML
+- **Packaging**: PyInstaller (one-file mode)
 
-### 3.2 GUI & Desktop Framework
+---
 
-- **PyQt6**
-  - `PyQt6.QtWidgets`, `QtGui`, `QtCore`, `QtSvg`
-  - Custom widgets:
-    - `MainWindow`, [LauncherDialog], [AICenterWindow]
-    - `ImageAdjustmentPanel`, various parameter dialogs (Unsharp/CLAHE/Binarization/Edge Detection)
-    - [ReviewWindow]
-    - `NewProjectDialog` and other project/UI helpers.
-  - Uses:
-    - `QGraphicsScene` / `QGraphicsItem` for canvas.
-    - `QDialog`, `QTabWidget`, `QGroupBox`, `QFormLayout` for structured dialogs.
-    - `QThread` + QObject workers for background AI and training tasks.
-    - `QTranslator` and `QLibraryInfo` for localization.
+## 6. Role Profile Matching: Why This Matters for AI/ML Roles
 
-### 3.3 Core Scientific & Image Processing Libraries
+This section explicitly connects the design decisions to competencies relevant for **AI/ML engineering roles in pharma and scientific domains**.
 
-- **OpenCV (`cv2`)**
-  - Image filtering, edge detection, CLAHE, geometric operations, and mask handling.
-  - Interoperability with Qt via `QImage` ↔ `numpy.ndarray` conversions.
+### 6.1 MLOps & Data Integrity
 
-- **NumPy (`numpy`)**
-  - Array manipulation for image data and AI-related intermediate representations.
+- **End-to-end data pipeline from raw images to training-ready datasets**
+  - Clear progression:
+    - Raw scientific images → project images.
+    - Expert annotations → canonical CSV.
+    - Canonical CSV → YOLO-style dataset (images, labels, configuration file).
+    - Trained model → prediction outputs → retraining CSV.
+  - Each step is implemented by a dedicated component (`ProjectManager`, [TrainingWorker], [AnalysisWorker], plugins) to keep responsibilities isolated and testable.
 
-- **Pillow (`PIL`)**
-  - Robust image opening and size extraction in the training dataset builder.
+- **Traceable and auditable annotations**
+  - Project-level CSV export with a stable schema acts as the **single source of truth** for labels.
+  - Separate **retraining CSV** captures human corrections to model predictions in the review window, which:
+    - Makes “what the model thought” vs. “what the expert corrected” explicit.
+    - Enables targeted retraining and retrospective analysis on how the dataset evolved over time.
 
-### 3.4 Machine Learning & AI Libraries
+- **Defensive programming around data**
+  - Strong emphasis on:
+    - Input validation for paths, images, and annotation records.
+    - Guardrails against inconsistent annotation structures.
+    - Backup/restore logic for CSV writes to prevent irreversible corruption.
+  - This aligns with regulated domains where **data integrity and recoverability** are mandatory.
 
-- **Ultralytics YOLO (`ultralytics`)**
-  - Training: via the `yolo` CLI (OBB mode).
-  - Inference: `YOLO` class used in [AnalysisWorker] to run prediction and obtain OBB outputs.
+- **Operationalization via background workers**
+  - Long-running tasks (dataset preparation, model training, analysis, feasibility reports) are executed in background threads with:
+    - Real-time log streaming to the GUI.
+    - Clear success/failure signaling.
+  - This represents a **production-minded approach** to model workflows, rather than ad-hoc scripts.
 
-- **PyTorch (`torch`)**
-  - Device management and tensor operations for:
-    - Segment Anything (SAM).
-    - ResNet-based feature extraction in the Feasibility Analyzer plugin.
+- **Dataset feasibility analysis plugin**
+  - The feasibility analyzer plugin:
+    - Uses standard deep-learning backbones and classical ML tooling to gauge dataset separability and learning behavior.
+    - Produces visual artifacts (e.g., t-SNE-like plots, learning curve-style plots) stored in [output/].
+  - This showcases:
+    - Awareness of **data-centric AI** (understanding data quality before over-investing in modeling).
+    - Integration of **statistical insight** into the labeling and training loop.
 
-- **Torchvision (`torchvision`)**
-  - Pretrained ResNet backbone and associated preprocessing transforms.
+### 6.2 GUI Design & User Centricity
 
-- **Segment Anything (`segment_anything`)**
-  - `sam_model_registry`, `SamPredictor` for interactive segmentation through [SAMManager] and [SAMTool].
+- **Designed for domain experts, not ML engineers**
+  - The main window and plugins are organized around the mental model of a researcher:
+    - Left-hand panel: tools, labels, navigation, image enhancement.
+    - Central area: high-resolution image with context-preserving zoom/pan.
+    - Dedicated “AI Center” for training and inference, separated from manual annotation.
+  - This separation reduces cognitive load: users always know **where** to perform which type of task.
 
-- **scikit-learn (`sklearn`)**
-  - `TSNE` for t‑SNE visualizations.
-  - `learning_curve` and `SGDClassifier` for learning-curve analysis in feasibility studies.
+- **Reducing cognitive overhead for annotation**
+  - Config-driven labels and keyboard shortcuts:
+    - Experts can shape the label set to match their ontology (e.g., tissue structures, cell types, etc.).
+    - Once configured, labels are a single click or single key-press away.
+  - Automatic synchronization between:
+    - Canvas selection and list selection.
+    - Label radios and the currently selected annotation.
 
-### 3.5 Data Science & Visualization
+- **Human-in-the-loop AI correction workflow**
+  - The review window is a separate, focused space for:
+    - Visual inspection of AI predictions.
+    - Manual correction with the same tooling used in manual annotation.
+    - One-button export of corrected annotations into a retraining dataset.
+  - This emphasizes **collaboration with AI**:
+    - The model proposes.
+    - The expert disposes.
+    - The system captures this interaction in a structured, reusable form.
 
-- **pandas**
-  - Reading/writing annotation CSV files.
-  - Grouping and transforming data for YOLO dataset generation and analysis plugins.
+- **Interactive segmentation as a tool, not a black box**
+  - SAM-based segmentation is integrated via a dedicated tool, not a hidden pipeline:
+    - Users provide explicit prompts (positive/negative points).
+    - The perceived “AI magic” is visual and incremental.
+  - This is particularly important in domains like pharma, where **explainability and user control** matter.
 
-- **Matplotlib (`matplotlib`, `matplotlib.pyplot`)**
-  - Generates t‑SNE scatter plots.
-  - Generates learning-curve figures.
-  - Uses a non-interactive backend for headless plot generation, saving to [output/].
+- **Internationalization and accessibility**
+  - `self.tr()` is used consistently for user-facing strings.
+  - A configurable language setting and Qt translation files (`en_US.qm`, `ja_JP.qm`, etc.) allow the same binary to serve diverse teams.
+  - Standard dialogs and messages are reused where possible to minimize surprise and training cost.
 
-- **PyYAML (`yaml`)**
-  - Writes YOLO’s `data.yaml` configuration file from the training manager.
+- **Usability-oriented error handling**
+  - Instead of exposing raw tracebacks to end users:
+    - Errors are shown as structured, localized messages.
+    - Detailed logs are still available in [maltilabeler.log] for developers and SRE/MLOps teams.
+  - This mirrors how production tools in pharma environments must behave:  
+    **robust for non-engineers**, **transparent for engineers**.
 
-### 3.6 Packaging & Deployment
+---
 
-- **PyInstaller**
-  - [maltilabeler.spec] provides a **one-file** build configuration:
-    - Includes [plugins/], [translations/], and [models/] as data.
-    - Declares hidden imports (PyQt6 submodules, `cv2`, `pandas`, `numpy`).
-  - Target: single executable suitable for end users (e.g., researchers without Python experience).
+If you’d like, I can next:
+
+- Tighten the language (e.g., more “bullet-point” CV style) for specific job descriptions.
+- Add a short **“Highlights” block** at the top summarizing 4–5 bullet points that directly map to the competencies you want to showcase (e.g., “designed full human-in-the-loop labeling + retraining loop with YOLO and SAM”).
