@@ -198,6 +198,12 @@ maltilabeler/
     - Writes results to CSV so they can be consumed by downstream statistical tools.
 
 ---
+## 📖 Documentation
+
+For detailed usage instructions, please refer to the **[User Guide](docs/USER_GUIDE.md)**.
+It covers the complete workflow from project creation to AI-assisted annotation.
+
+---
 
 ## 4. Getting Started
 
