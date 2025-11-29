@@ -1,0 +1,14 @@
+# Python virtual environment
+venv/
+
+# Python cache
+__pycache__/
+
+# その他、一般的なPythonプロジェクトで無視するもの
+*.pyc
+.env
+maltilabeler.log
+count_loc.py
+build/
+dist/
+
