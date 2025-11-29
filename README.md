@@ -230,7 +230,7 @@ pip install segment-anything-py  # or equivalent SAM wrapper
 
 Notes:
 
-- The exact package names and versions can be pinned in an `environment.yml` for fully reproducible installs.
+- The exact package names and versions can be pinned in an **[environment.yml](environment.yml)** for fully reproducible installs.
 - Heavy packages (PyTorch, Qt, OpenCV) are intentionally **isolated in a dedicated environment**, reducing conflicts with other projects.
 
 ### 4.2 Running the Application from Source
