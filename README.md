@@ -382,9 +382,3 @@ This section explicitly connects the design decisions to competencies relevant f
   - This mirrors how production tools in pharma environments must behave:  
     **robust for non-engineers**, **transparent for engineers**.
 
----
-
-If you’d like, I can next:
-
-- Tighten the language (e.g., more “bullet-point” CV style) for specific job descriptions.
-- Add a short **“Highlights” block** at the top summarizing 4–5 bullet points that directly map to the competencies you want to showcase (e.g., “designed full human-in-the-loop labeling + retraining loop with YOLO and SAM”).
