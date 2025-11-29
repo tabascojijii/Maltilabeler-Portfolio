@@ -8,7 +8,7 @@
 ---
 
 ## 1. Project Purpose: Human–AI Collaboration in Scientific Research
-<img width="2863" height="1677" alt="スクリーンショット 2025-11-30 011459" src="https://github.com/user-attachments/assets/242ea827-f0c8-435c-9681-422c59eacfe9" />
+<img width="2863" height="1677" alt="maltilabeler_mainwindow.png" src="docs/maltilabeler_mainwindow.png" />
 
 
 Maltilabeler is a desktop annotation toolkit designed for **scientific imaging workflows**, where domain experts and AI models must collaborate rather than compete.
